@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Ground 2D</title>
+<style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      background: skyblue;
+      position: relative;
+    }
+    button {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+    }
+</style>
+</head>
+<body>
+  <button 
+    id="toggleText"
+    style="position:fixed; top:10px; left:10px; z-index:1000;"
+  >
+    Show px values
+  </button>
+  
+  <canvas id="canvas"></canvas>
+  
+  <script>
+    const button = document.getElementById('toggleText');
+    let showText = false;
+    
+    button.addEventListener('click', () => {
+      showText = !showText;
+      button.textContent = showText
+        ? 'Show px values'
+        : 'Hide px values';
+    });
+    
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    const NUM_SQUARES = 6;
+
+    function randomBetween(min, max) {
+      return min + Math.random() * (max - min);
+    }
+
+    function createLayer({ minHeight, maxHeight, speed, fillColor }) {
+      return {
+        lines: [],
+        minHeight,
+        maxHeight,
+        speed,
+        fillColor
+      };
+    }
+
+    const backLayer = createLayer({
+      minHeight: 100,
+      maxHeight: 500,
+      speed: 0.5,
+      fillColor: 'gray'
+    });
+    
+    const midLayer = createLayer({
+      minHeight: 50,
+      maxHeight: 400,
+      speed: 0.65,
+      fillColor: 'lightgreen'
+    });
+
+    const frontLayer = createLayer({
+      minHeight: 0,
+      maxHeight: 300,
+      speed: 0.8,
+      fillColor: 'lightgray'
+    });
+
+    function createLine(layer, x) {
+      return {
+        x,
+        height: randomBetween(layer.minHeight, layer.maxHeight),
+        spacing: randomBetween(50, 200)
+      };
+    }
+
+    function initLayer(layer) {
+      let x = 0;
+      while (x < canvas.width + 100) {
+        const line = createLine(layer, x);
+        layer.lines.push(line);
+        x += line.spacing;
+      }
+    }
+
+    initLayer(backLayer);
+    initLayer(midLayer);
+    initLayer(frontLayer);
+
+    function drawLayer(layer, textColor = 'black') {
+      const lines = layer.lines;
+      if (lines.length === 0) return;
+
+      for (let line of lines) {
+        line.x -= layer.speed;
+      }
+
+      layer.lines = lines.filter(line => line.x > -200);
+
+      if (layer.lines.length > 0) {
+        const last = layer.lines[layer.lines.length - 1];
+        if (last.x + last.spacing < canvas.width + 200) {
+          layer.lines.push(createLine(layer, last.x + last.spacing));
+        }
+      }
+
+      ctx.beginPath();
+      ctx.moveTo(lines[0].x, canvas.height - lines[0].height);
+
+      for (let i = 1; i < lines.length; i++) {
+        ctx.lineTo(lines[i].x, canvas.height - lines[i].height);
+      }
+
+      ctx.lineTo(lines[lines.length - 1].x, canvas.height);
+      ctx.lineTo(lines[0].x, canvas.height);
+      ctx.closePath();
+
+      ctx.fillStyle = layer.fillColor;
+      ctx.fill();
+
+      ctx.strokeStyle = 'black';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
+      for (let line of lines) {
+        ctx.fillRect(line.x, canvas.height - line.height, 1, line.height);
+      }
+
+      if (showText) {
+        ctx.font = '12px Arial';
+        ctx.fillStyle = 'black';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'bottom';
+
+        for (let line of lines) {
+          ctx.fillText(
+            Math.round(line.height) + ' px',
+            line.x,
+            canvas.height - line.height - 8
+          );
+        }
+      } 
+    }
+
+    let squares = [];
+
+    const cloudImages = ['cloud2.png' ];
+
+    function createSquare(initialX) {
+      const square = document.createElement('div');
+      square.style.position = 'absolute';
+      square.style.zIndex = '-10';
+
+      const size = randomBetween(50, 300);
+      square.style.width = `${size}px`;
+      square.style.height = `${size}px`;
+      square.style.left = `${initialX}px`;
+      square.style.top = `${Math.random() * (canvas.height / 2)}px`;
+
+      const img = cloudImages[Math.floor(Math.random() * cloudImages.length)];
+      square.style.backgroundImage = `url("${img}")`;
+      square.style.backgroundSize = 'contain';
+      square.style.backgroundRepeat = 'no-repeat';
+      square.style.backgroundPosition = 'center';
+
+      square.style.transform = `rotate(${Math.random() < 0.5 ? 0 : 180}deg)`;
+      square.speed = randomBetween(0.2, 0.8);
+
+      document.body.appendChild(square);
+      squares.push(square);
+    }
+
+    for (let i = 0; i < NUM_SQUARES; i++) {
+      createSquare(Math.random() * canvas.width);
+    }
+
+    function animate() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      ctx.globalAlpha = 1;
+      drawLayer(backLayer, 'gray');
+
+      ctx.globalAlpha = 1;
+      drawLayer(midLayer, 'lightgreen');
+
+      ctx.globalAlpha = 1;
+      drawLayer(frontLayer, 'lightgray');
+
+      for (let square of squares) {
+        let x = parseFloat(square.style.left);
+        x -= square.speed;
+
+        if (x + parseFloat(square.style.width) < 0) {
+          x = canvas.width + Math.random() * 200;
+          square.style.top = `${Math.random() * (canvas.height / 2)}px`;
+        }
+
+        square.style.left = `${x}px`;
+      }
+
+      requestAnimationFrame(animate);
+    }
+
+    animate();
+
+    window.addEventListener('resize', () => {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    });
+  </script>
+
+</body>
+</html>
